@@ -4,7 +4,8 @@ import {
   Button, 
   Card, 
   CardContent,
-  Typography
+  Typography,
+  LinearProgress
 } from '@material-ui/core';
 
 import deleteIcon from './assets/delete_icon.png';
@@ -16,19 +17,24 @@ export default class App extends React.Component {
     tasks: [],
     taskQueue: [],
     servers: 0,
-    currentTaskCount: 0
+    currentTaskCount: 0,
+    tasksCompleted: []
   }
 
   addTask = () => {
     const { newTasks, tasks, currentTaskCount } = this.state;
-    const newTasksAssigned = Array(newTasks).fill({ status: 'pending' }).map((task, index) => ({ ...task, name: `Task ${index + 1 + currentTaskCount}`}));
+    const newTasksAssigned = Array(newTasks).fill({ status: 'pending' }).map((task, index) => ({ ...task, name: `Task ${index + 1 + currentTaskCount}`, value: 0}));
     const newsTaskList = [...tasks, ...newTasksAssigned ];
     this.setState({ tasks: newsTaskList, newTasks: 0, currentTaskCount: currentTaskCount + newTasksAssigned.length });
   }
 
   addServer = () => {
     const { servers } = this.state;
-    this.setState({ servers: servers+1 });
+    this.setState({ servers: servers+1 }, () => {
+      if (!this.execution) {
+        this.startExecution();
+      }
+    });
   }
 
   removeServer = () => {
@@ -39,6 +45,35 @@ export default class App extends React.Component {
   deletetask = (task) => {
     const { tasks } = this.state;
     this.setState({ tasks: tasks.filter(tsk => tsk.name !== task.name) })
+  }
+
+  startExecution = () => {
+    if (this.state.tasks.length) {
+      this.execution = setInterval(() => {
+        const { tasks, servers, tasksCompleted } = this.state;
+        for(let i=0;i<servers; i++) {
+          const currentTask = tasks[i];
+          if (currentTask.status !== 'done') {
+            currentTask.value = currentTask.value + 5;
+            currentTask.status = 'active';
+            if (currentTask.value === 100) {
+              currentTask.status = 'done';
+              tasksCompleted.push(currentTask);
+            }
+          }
+          tasks[i] = currentTask;
+        }
+        const modifiedTasks = tasks.filter(task => task.status !== 'done');
+        if (!modifiedTasks.length) {
+          clearInterval(this.execution);
+          this.setState({ servers: 0 })
+        }
+        this.setState({ tasks: modifiedTasks, tasksCompleted });
+      }, 1000);
+    } else {
+      alert('No task queued. Cannot start server.')
+      this.setState({ servers: 0 });
+    }
   }
 
   // Renderers
@@ -66,13 +101,16 @@ export default class App extends React.Component {
     )
   }
 
-  renderExecution = () => {
+  renderCompletedTasks = () => {
+    const { tasksCompleted } = this.state;
     return (
       <div style={{ width: '50%', paddingLeft: 20 }}>
-        <Typography variant="h4" gutterBottom>Execution</Typography>
+        <Typography variant="h4" gutterBottom>Tasks Completed</Typography>
         <Card style={{ height: 500, overflow: 'scroll' }}>
           <CardContent>
-          
+            {tasksCompleted.map(task => (
+              <Typography variant="h5" gutterBottom style={{ marginRight: 20 }}>{task.name}</Typography>
+            ))}
           </CardContent>
         </Card>
       </div>
@@ -87,22 +125,27 @@ export default class App extends React.Component {
         <Card style={{ height: 500, overflow: 'scroll' }}>
           <CardContent>
             {tasks.map((task, index) => {
-              const { name, status } = task;
+              const { name, status, value = 0 } = task;
               return (
                 <div key={name}>
                   <div style={{ display: 'flex', alignItems: 'center'}}>
                     <Typography variant="h5" gutterBottom style={{ marginRight: 20 }}>{name}</Typography>
-                    <Typography variant="button" display="block" gutterBottom>{status}</Typography>
-                    <div onClick={() => this.deletetask(task, index)}>
-                      <img src={deleteIcon} style={{ height: 30, width: 30, marginLeft: 20 }} />
+                    <Typography variant="button" display="block" gutterBottom style={{ marginRight: 10}}>{status}</Typography>
+                    <div style={{ marginRight: 10, flex: 1}}>
+                      <LinearProgress variant="determinate" value={value}  />
                     </div>
+                    {status !== 'active' && (
+                      <div onClick={() => this.deletetask(task, index)}>
+                        <img src={deleteIcon} style={{ height: 30, width: 30 }} />
+                      </div>
+                    )}
                   </div>
                 </div>
               )
             })}
             {tasks.length === 0 && (
               <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 'auto'}}>
-                No tasks
+                No tasks queued
               </div>
             )}
           </CardContent>
@@ -118,7 +161,7 @@ export default class App extends React.Component {
         {this.renderHeader()}
         <div style={{ display: 'flex', marginTop: 40, width: '100%' }}>
           {this.renderTaskQueue()}
-          {this.renderExecution()}
+          {this.renderCompletedTasks()}
         </div>
       </div>
     )
