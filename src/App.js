@@ -53,19 +53,20 @@ export default class App extends React.Component {
         const { tasks, servers, tasksCompleted } = this.state;
         for(let i=0;i<servers; i++) {
           const currentTask = tasks[i];
-          if (currentTask.status !== 'done') {
+          if (currentTask && currentTask.status !== 'done') {
             currentTask.value = currentTask.value + 5;
             currentTask.status = 'active';
             if (currentTask.value === 100) {
               currentTask.status = 'done';
               tasksCompleted.push(currentTask);
             }
+            tasks[i] = currentTask;
           }
-          tasks[i] = currentTask;
         }
         const modifiedTasks = tasks.filter(task => task.status !== 'done');
         if (!modifiedTasks.length) {
           clearInterval(this.execution);
+          this.execution = null;
           this.setState({ servers: 0 })
         }
         this.setState({ tasks: modifiedTasks, tasksCompleted });
@@ -96,7 +97,7 @@ export default class App extends React.Component {
         <div style={{ flex: 1 }} />
         <Typography variant="h5" gutterBottom style={{ marginRight: 50 }}>{`Active Servers: ${servers}`}</Typography>
         <Button variant="contained" color="primary" onClick={this.addServer} style={{ marginRight: 10 }}>Add Server</Button>
-        <Button variant="contained" color="secondary" onClick={this.removeServer} disabled={!servers}>Remove Server</Button>
+        <Button variant="contained" color="secondary" onClick={this.removeServer} disabled={!servers || (servers ===1 && this.execution)}>Remove Server</Button>
       </div>
     )
   }
